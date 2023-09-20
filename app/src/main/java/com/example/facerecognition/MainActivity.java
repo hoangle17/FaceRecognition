@@ -8,6 +8,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.PixelCopy;
@@ -32,6 +33,7 @@ import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
+import com.google.android.gms.vision.face.Landmark;
 
 import java.io.IOException;
 
@@ -50,9 +52,7 @@ public class MainActivity extends AppCompatActivity {
     private SurfaceView surfaceView;
     private CameraSource cameraSource;
     private AppCompatImageView imgCenter, imgRight, imgLeft;
-    private View viewCapture;
     private boolean isStraightPass, isRightPass, isLeftPass, isCalling;
-
     private EKycService eKycService;
 
     @Override
@@ -71,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
         imgCenter = findViewById(R.id.imgCenter);
         imgRight = findViewById(R.id.imgRight);
         imgLeft = findViewById(R.id.imgLeft);
-        viewCapture = findViewById(R.id.viewCapture);
     }
 
     private void captureViewOnScreen(SurfaceView view, TypeImageRecognition type) {
@@ -191,8 +190,10 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             // Face is facing straight ahead
                             Log.d(TAG, "Face is facing straight ahead");
-                            if (!isStraightPass) {
-                                captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
+                            if (isFaceInsideFrame(face)) {
+                                if (!isStraightPass) {
+                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
+                                }
                             }
                         }
                     }
@@ -201,6 +202,22 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private boolean isFaceInsideFrame(Face face) {
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        int screenHeight = displayMetrics.heightPixels;
+
+        float faceCenterX = face.getPosition().x + face.getWidth() * 0.5f; // Calculate the horizontal center of the face
+        float faceCenterY = face.getPosition().y + face.getHeight() * 0.5f + (float) screenHeight/2; // Calculate the vertical center of the face
+        float cameraWidth = surfaceView.getWidth(); // Replace with the width of your camera preview
+        float cameraHeight = surfaceView.getHeight(); // Replace with the height of your camera preview
+
+        float centerThreshold = 0.2f; // Define a threshold to determine if the face is centered
+
+        boolean isFaceCenteredWidth = Math.abs(faceCenterX - cameraWidth * 0.5f) < cameraWidth * centerThreshold;
+        boolean isFaceCenteredHeight = Math.abs(faceCenterY - cameraHeight * 0.5f) < cameraHeight * centerThreshold;
+        return isFaceCenteredWidth && isFaceCenteredHeight;
+    }
 
     @Override
     protected void onDestroy() {
