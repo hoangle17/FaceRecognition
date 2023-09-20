@@ -16,6 +16,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -28,6 +29,7 @@ import androidx.core.content.ContextCompat;
 import com.example.facerecognition.config.APIClient;
 import com.example.facerecognition.custom.FocusView;
 import com.example.facerecognition.model.CompareAvatarRequest;
+import com.example.facerecognition.model.CompareResponse;
 import com.example.facerecognition.model.ResultUploadResponse;
 import com.example.facerecognition.model.TypeImageRecognition;
 import com.example.facerecognition.service.EKycService;
@@ -60,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String idImgStraight = "";
     private final String idImgAvatarNFC = "id_avatar_nfc.jpg";
+    private LinearLayout vStatusActive;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
         imgCenter = findViewById(R.id.imgCenter);
         imgRight = findViewById(R.id.imgRight);
         imgLeft = findViewById(R.id.imgLeft);
+        vStatusActive = findViewById(R.id.vStatusActive);
     }
 
     private void captureViewOnScreen(SurfaceView view, TypeImageRecognition type) {
@@ -216,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
         int screenHeight = displayMetrics.heightPixels;
 
         float faceCenterX = face.getPosition().x + face.getWidth() * 0.5f; // Calculate the horizontal center of the face
-        float faceCenterY = face.getPosition().y + face.getHeight() * 0.5f + (float) screenHeight/2; // Calculate the vertical center of the face
+        float faceCenterY = face.getPosition().y + face.getHeight() * 0.5f + (float) (9 * screenHeight / 20); // Calculate the vertical center of the face
         float cameraWidth = surfaceView.getWidth(); // Replace with the width of your camera preview
         float cameraHeight = surfaceView.getHeight(); // Replace with the height of your camera preview
 
@@ -289,17 +293,22 @@ public class MainActivity extends AppCompatActivity {
         request.setBucket_id1("ekyc");
         request.setObj_id1(idImgStraight);
         request.setBucket_id2("ekyc");
-        request.setObj_id2(idImgAvatarNFC);
+        request.setObj_id2(idImgStraight);
         request.setModel_name("Adaface");
 
-        Call<Object> call = eKycService2.checkAvatar(request);
-        call.enqueue(new Callback<Object>() {
+        Call<CompareResponse> call = eKycService2.checkAvatar(request);
+        call.enqueue(new Callback<CompareResponse>() {
             @Override
-            public void onResponse(Call<Object> call, Response<Object> response) {
+            public void onResponse(Call<CompareResponse> call, Response<CompareResponse> response) {
+                CompareResponse compareResponse = response.body();
+                if (compareResponse.getStatus().equals("status")) {
+
+                }
+                vStatusActive.setVisibility(View.VISIBLE);
             }
 
             @Override
-            public void onFailure(Call<Object> call, Throwable t) {
+            public void onFailure(Call<CompareResponse> call, Throwable t) {
             }
         });
     }

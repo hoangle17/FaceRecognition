@@ -1,6 +1,7 @@
 package com.example.facerecognition.service;
 
 import com.example.facerecognition.model.CompareAvatarRequest;
+import com.example.facerecognition.model.CompareResponse;
 import com.example.facerecognition.model.ResultUploadResponse;
 
 import java.util.List;
@@ -24,7 +25,7 @@ public interface EKycService {
     );
 
     @POST("/api/v1/face/compare_v6")
-    Call<Object> checkAvatar(
+    Call<CompareResponse> checkAvatar(
             @Body CompareAvatarRequest request
             );
 }
