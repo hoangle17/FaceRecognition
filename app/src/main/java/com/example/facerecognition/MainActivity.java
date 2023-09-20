@@ -27,6 +27,8 @@ import androidx.core.content.ContextCompat;
 
 import com.example.facerecognition.config.APIClient;
 import com.example.facerecognition.custom.FocusView;
+import com.example.facerecognition.model.CompareAvatarRequest;
+import com.example.facerecognition.model.ResultUploadResponse;
 import com.example.facerecognition.model.TypeImageRecognition;
 import com.example.facerecognition.service.EKycService;
 import com.google.android.gms.vision.CameraSource;
@@ -52,8 +54,12 @@ public class MainActivity extends AppCompatActivity {
     private SurfaceView surfaceView;
     private CameraSource cameraSource;
     private AppCompatImageView imgCenter, imgRight, imgLeft;
-    private boolean isStraightPass, isRightPass, isLeftPass, isCalling;
+    private boolean isStraightPass, isRightPass, isLeftPass, isCalling, checked;
     private EKycService eKycService;
+    private EKycService eKycService2;
+
+    private String idImgStraight = "";
+    private final String idImgAvatarNFC = "id_avatar_nfc.jpg";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         surfaceView = findViewById(R.id.surface_view);
         eKycService = APIClient.getClient().create(EKycService.class);
+        eKycService2 = APIClient.getClient2().create(EKycService.class);
 
         // Request camera permission if not granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -166,6 +173,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void receiveDetections(@NonNull Detector.Detections<Face> detections) {
                 if (isRightPass && isStraightPass && isLeftPass) {
+                    if (!checked && !idImgStraight.isEmpty()) checkImageAvatar(idImgStraight, idImgAvatarNFC);
                     return;
                 }
                 SparseArray<Face> faces = detections.getDetectedItems();
@@ -249,14 +257,16 @@ public class MainActivity extends AppCompatActivity {
         // Create MultipartBody.Part for the file
         RequestBody fileRequestBody = RequestBody.create(MediaType.parse("image/jpeg"), ImageUtils.getJpeg(this, type.value));
         MultipartBody.Part filePart = MultipartBody.Part.createFormData("file", type.value, fileRequestBody);
-        Call<Object> call = eKycService.uploadFile(bucketIdRequestBody, gesture, img_name, filePart);
-        call.enqueue(new Callback<Object>() {
+        Call<ResultUploadResponse> call = eKycService.uploadFile(bucketIdRequestBody, gesture, img_name, filePart);
+        call.enqueue(new Callback<ResultUploadResponse>() {
             @Override
-            public void onResponse(Call<Object> call, Response<Object> response) {
+            public void onResponse(Call<ResultUploadResponse> call, Response<ResultUploadResponse> response) {
                 isCalling = false;
-                Log.d("uploadFile", "onResponse");
                 if (type == TypeImageRecognition.NAME_IMG_CENTER) {
                     isStraightPass = true;
+                    if (response.body() != null) {
+                        idImgStraight = response.body().getImage_id();
+                    }
                 }
                 if (type == TypeImageRecognition.NAME_IMG_LEFT) {
                     isLeftPass = true;
@@ -267,9 +277,29 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(Call<Object> call, Throwable t) {
+            public void onFailure(Call<ResultUploadResponse> call, Throwable t) {
                 isCalling = false;
-                Log.d("uploadFile", "onFailure");
+            }
+        });
+    }
+
+    private void checkImageAvatar(String idImgStraight, String idImgAvatarNFC) {
+        checked = true;
+        CompareAvatarRequest request = new CompareAvatarRequest();
+        request.setBucket_id1("ekyc");
+        request.setObj_id1(idImgStraight);
+        request.setBucket_id2("ekyc");
+        request.setObj_id2(idImgAvatarNFC);
+        request.setModel_name("Adaface");
+
+        Call<Object> call = eKycService2.checkAvatar(request);
+        call.enqueue(new Callback<Object>() {
+            @Override
+            public void onResponse(Call<Object> call, Response<Object> response) {
+            }
+
+            @Override
+            public void onFailure(Call<Object> call, Throwable t) {
             }
         });
     }

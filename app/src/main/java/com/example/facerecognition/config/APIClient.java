@@ -15,11 +15,18 @@ public class APIClient {
         interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(interceptor).build();
 
-        retrofit = new Retrofit.Builder()
-                .baseUrl("http://188.166.233.195:10000/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .client(client)
-                .build();
+        retrofit = new Retrofit.Builder().baseUrl("http://188.166.233.195:10000/").addConverterFactory(GsonConverterFactory.create()).client(client).build();
+
+        return retrofit;
+    }
+
+    public static Retrofit getClient2() {
+
+        HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor();
+        interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(interceptor).build();
+
+        retrofit = new Retrofit.Builder().baseUrl("http://188.166.233.195:10001/").addConverterFactory(GsonConverterFactory.create()).client(client).build();
 
         return retrofit;
     }
