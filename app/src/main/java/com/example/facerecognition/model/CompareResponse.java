@@ -26,4 +26,12 @@ public class CompareResponse {
     public void setResult(String result) {
         this.result = result;
     }
+
+    @Override
+    public String toString() {
+        return "CompareResponse{" +
+                "status='" + status + '\'' +
+                ", result='" + result + '\'' +
+                '}';
+    }
 }

@@ -3,7 +3,7 @@ package com.example.facerecognition;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.PointF;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,17 +17,17 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.AppCompatImageView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.facerecognition.config.APIClient;
-import com.example.facerecognition.custom.FocusView;
+import com.example.facerecognition.custom.CircleProgressBar;
 import com.example.facerecognition.model.CompareAvatarRequest;
 import com.example.facerecognition.model.CompareResponse;
 import com.example.facerecognition.model.ResultUploadResponse;
@@ -37,7 +37,6 @@ import com.google.android.gms.vision.CameraSource;
 import com.google.android.gms.vision.Detector;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
-import com.google.android.gms.vision.face.Landmark;
 
 import java.io.IOException;
 
@@ -63,6 +62,10 @@ public class MainActivity extends AppCompatActivity {
     private String idImgStraight = "";
     private final String idImgAvatarNFC = "id_avatar_nfc.jpg";
     private LinearLayout vStatusActive;
+    private CircleProgressBar circleProgressBar;
+    private AppCompatImageView icStatus, icBack;
+    private TextView tvStatus, tvStep;
+    private int stepCurrent = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +85,19 @@ public class MainActivity extends AppCompatActivity {
         imgRight = findViewById(R.id.imgRight);
         imgLeft = findViewById(R.id.imgLeft);
         vStatusActive = findViewById(R.id.vStatusActive);
+        icStatus = findViewById(R.id.icStatus);
+        icBack = findViewById(R.id.icBack);
+        tvStatus = findViewById(R.id.tvStatus);
+        tvStep = findViewById(R.id.tvStep);
+
+        circleProgressBar = findViewById(R.id.circleProgressBar);
+        setProgressCustom(100, Color.RED);
+        icBack.setOnClickListener(view -> finish());
+    }
+
+    private void setProgressCustom(int i, int red) {
+        circleProgressBar.setProgress(i);
+        circleProgressBar.setColor(red);
     }
 
     private void captureViewOnScreen(SurfaceView view, TypeImageRecognition type) {
@@ -93,24 +109,26 @@ public class MainActivity extends AppCompatActivity {
 
         // Perform the pixel copy operation
         PixelCopy.request(view, rect, bitmap, copyResult -> {
-            if (copyResult == PixelCopy.SUCCESS) {
+            if (copyResult == PixelCopy.SUCCESS && !isCalling) {
                 //
                 if (type == TypeImageRecognition.NAME_IMG_CENTER) {
                     imgCenter.setImageBitmap(cropImage2(bitmap));
-                }
-                if (type == TypeImageRecognition.NAME_IMG_LEFT) {
-                    imgLeft.setImageBitmap(cropImage2(bitmap));
+                    setProgressCustom(33, Color.GREEN);
                 }
                 if (type == TypeImageRecognition.NAME_IMG_RIGHT) {
+                    imgLeft.setImageBitmap(cropImage2(bitmap));
+                    setProgressCustom(100, Color.GREEN);
+                }
+                if (type == TypeImageRecognition.NAME_IMG_LEFT) {
                     imgRight.setImageBitmap(cropImage2(bitmap));
+                    setProgressCustom(66, Color.GREEN);
                 }
                 //
                 ImageUtils.saveBitmapAsJpeg(cropImage2(bitmap), this, type.value);
 
-                if (!isCalling) callApiCheckImg(type);
+                callApiCheckImg(type);
             } else {
                 // The pixel copy operation failed
-                Toast.makeText(MainActivity.this, "Unable to capture view", Toast.LENGTH_SHORT).show();
             }
         }, new Handler(Looper.getMainLooper()));
     }
@@ -177,7 +195,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void receiveDetections(@NonNull Detector.Detections<Face> detections) {
                 if (isRightPass && isStraightPass && isLeftPass) {
-                    if (!checked && !idImgStraight.isEmpty()) checkImageAvatar(idImgStraight, idImgAvatarNFC);
+                    if (!checked && !idImgStraight.isEmpty())
+                        checkImageAvatar(idImgStraight, idImgAvatarNFC);
                     return;
                 }
                 SparseArray<Face> faces = detections.getDetectedItems();
@@ -190,22 +209,32 @@ public class MainActivity extends AppCompatActivity {
                         if (eulerY < -30) {
                             // Face is facing right
                             Log.d(TAG, "Face is facing right");
-                            if (!isRightPass) {
-                                captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_RIGHT);
-                            }
+                            final Handler handler = new Handler(Looper.getMainLooper());
+                            handler.postDelayed(() -> {
+                                if (!isRightPass && stepCurrent == 2) {
+                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_RIGHT);
+                                }
+                            }, 150);
+
                         } else if (eulerY > 30) {
                             // Face is facing left
                             Log.d(TAG, "Face is facing left");
-                            if (!isLeftPass) {
-                                captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_LEFT);
-                            }
+                            final Handler handler = new Handler(Looper.getMainLooper());
+                            handler.postDelayed(() -> {
+                                if (!isLeftPass && stepCurrent == 1) {
+                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_LEFT);
+                                }
+                            }, 150);
                         } else {
                             // Face is facing straight ahead
                             Log.d(TAG, "Face is facing straight ahead");
                             if (isFaceInsideFrame(face)) {
-                                if (!isStraightPass) {
-                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
-                                }
+                                final Handler handler = new Handler(Looper.getMainLooper());
+                                handler.postDelayed(() -> {
+                                    if (!isStraightPass && stepCurrent == 0) {
+                                        captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
+                                    }
+                                }, 300);
                             }
                         }
                     }
@@ -267,6 +296,7 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<ResultUploadResponse> call, Response<ResultUploadResponse> response) {
                 isCalling = false;
                 if (type == TypeImageRecognition.NAME_IMG_CENTER) {
+                    setNextStep();
                     isStraightPass = true;
                     if (response.body() != null) {
                         idImgStraight = response.body().getImage_id();
@@ -274,9 +304,11 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (type == TypeImageRecognition.NAME_IMG_LEFT) {
                     isLeftPass = true;
+                    setNextStep();
                 }
                 if (type == TypeImageRecognition.NAME_IMG_RIGHT) {
                     isRightPass = true;
+                    setNextStep();
                 }
             }
 
@@ -293,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
         request.setBucket_id1("ekyc");
         request.setObj_id1(idImgStraight);
         request.setBucket_id2("ekyc");
-        request.setObj_id2(idImgStraight);
+        request.setObj_id2(idImgAvatarNFC);
         request.setModel_name("Adaface");
 
         Call<CompareResponse> call = eKycService2.checkAvatar(request);
@@ -302,14 +334,36 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<CompareResponse> call, Response<CompareResponse> response) {
                 CompareResponse compareResponse = response.body();
                 if (compareResponse.getStatus().equals("status")) {
-
+                    setResultActive(true);
+                } else {
+                    setResultActive(false);
                 }
-                vStatusActive.setVisibility(View.VISIBLE);
             }
 
             @Override
             public void onFailure(Call<CompareResponse> call, Throwable t) {
+                setResultActive(false);
             }
         });
+    }
+
+    private void setResultActive(boolean isActive) {
+        vStatusActive.setVisibility(View.VISIBLE);
+        tvStep.setVisibility(View.GONE);
+        tvStatus.setText(isActive ? "Xác thực khuôn mặt thành công!" : "Xác thực khuôn mặt thất bại!");
+        tvStatus.setTextColor(isActive ? Color.parseColor("#17C37B") : Color.parseColor("#FF4A5A"));
+        icStatus.setImageResource(isActive ? R.drawable.ic_active : R.drawable.ic_active_fail);
+    }
+
+    private void setNextStep() {
+        stepCurrent++;
+        Log.d("stepCurrent", String.valueOf(stepCurrent));
+        if (stepCurrent == 0) {
+            tvStep.setText("Vui lòng đưa khuôn mặt vào khung hình");
+        } else if (stepCurrent == 1) {
+            tvStep.setText("Vui lòng quay mặt từ từ sang bên trái ");
+        } else {
+            tvStep.setText("Vui lòng quay mặt từ từ sang bên phải");
+        }
     }
 }
