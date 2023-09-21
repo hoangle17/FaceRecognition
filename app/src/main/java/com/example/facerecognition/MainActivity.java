@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private final String idImgAvatarNFC = "id_avatar_nfc.jpg";
     private LinearLayout vStatusActive;
     private CircleProgressBar circleProgressBar;
-    private AppCompatImageView icStatus, icBack;
+    private AppCompatImageView icStatus, icBack ,imgLoadingCompare;
     private TextView tvStatus, tvStep;
     private int stepCurrent = 0;
 
@@ -89,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
         icBack = findViewById(R.id.icBack);
         tvStatus = findViewById(R.id.tvStatus);
         tvStep = findViewById(R.id.tvStep);
-
+        imgLoadingCompare = findViewById(R.id.imgLoadingCompare);
         circleProgressBar = findViewById(R.id.circleProgressBar);
         setProgressCustom(100, Color.RED);
         icBack.setOnClickListener(view -> finish());
@@ -320,6 +320,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkImageAvatar(String idImgStraight, String idImgAvatarNFC) {
+        showLoading(true);
         checked = true;
         CompareAvatarRequest request = new CompareAvatarRequest();
         request.setBucket_id1("ekyc");
@@ -332,6 +333,7 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<CompareResponse>() {
             @Override
             public void onResponse(Call<CompareResponse> call, Response<CompareResponse> response) {
+                showLoading(false);
                 CompareResponse compareResponse = response.body();
                 if (compareResponse.getStatus().equals("status")) {
                     setResultActive(true);
@@ -342,6 +344,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<CompareResponse> call, Throwable t) {
+                showLoading(false);
                 setResultActive(false);
             }
         });
@@ -365,5 +368,10 @@ public class MainActivity extends AppCompatActivity {
         } else {
             tvStep.setText("Vui lòng quay mặt từ từ sang bên phải");
         }
+    }
+
+    private void showLoading(boolean isShow) {
+        final Handler handler = new Handler(Looper.getMainLooper());
+        handler.postDelayed(() -> imgLoadingCompare.setVisibility(isShow ? View.VISIBLE : View.GONE), 1);
     }
 }
