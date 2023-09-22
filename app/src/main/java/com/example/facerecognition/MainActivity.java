@@ -16,6 +16,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -66,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private AppCompatImageView icStatus, icBack ,imgLoadingCompare;
     private TextView tvStatus, tvStep;
     private int stepCurrent = 0;
+    private FrameLayout bgLoading;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         tvStep = findViewById(R.id.tvStep);
         imgLoadingCompare = findViewById(R.id.imgLoadingCompare);
         circleProgressBar = findViewById(R.id.circleProgressBar);
+        bgLoading = findViewById(R.id.bgLoading);
         setProgressCustom(100, Color.RED);
         icBack.setOnClickListener(view -> finish());
     }
@@ -372,6 +375,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void showLoading(boolean isShow) {
         final Handler handler = new Handler(Looper.getMainLooper());
-        handler.postDelayed(() -> imgLoadingCompare.setVisibility(isShow ? View.VISIBLE : View.GONE), 1);
+        handler.postDelayed(() -> {
+            imgLoadingCompare.setVisibility(isShow ? View.VISIBLE : View.GONE);
+            bgLoading.setVisibility(isShow ? View.VISIBLE : View.GONE);
+        }, 1);
     }
 }
