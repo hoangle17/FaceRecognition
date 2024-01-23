@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -153,101 +154,130 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startCamera() {
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        int cameraId = getFrontCameraId(); // Get the camera ID for the front camera
+        if (cameraId != -1) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // Create the face detector
-        FaceDetector faceDetector = new FaceDetector.Builder(this).setTrackingEnabled(false).setMode(FaceDetector.FAST_MODE).build();
+            // Create the face detector
+            FaceDetector faceDetector = new FaceDetector.Builder(this)
+                    .setTrackingEnabled(false)
+                    .setMode(FaceDetector.FAST_MODE)
+                    .build();
 
-        // Create the camera source using the face detector
-        cameraSource = new CameraSource.Builder(this, faceDetector).setFacing(CameraSource.CAMERA_FACING_FRONT).setRequestedFps(30).build();
-        // Add callback to the preview surface
-        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
-            @Override
-            public void surfaceCreated(SurfaceHolder holder) {
-                try {
-                    if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
+            // Create the camera source using the face detector and specified camera ID
+            cameraSource = new CameraSource.Builder(this, faceDetector)
+                    .setFacing(cameraId)
+                    .setRequestedFps(30)
+                    .build();
+            // Add callback to the preview surface
+            surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+                @Override
+                public void surfaceCreated(SurfaceHolder holder) {
+                    try {
+                        if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            // TODO: Consider calling
+                            //    ActivityCompat#requestPermissions
+                            // here to request the missing permissions, and then overriding
+                            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                            //                                          int[] grantResults)
+                            // to handle the case where the user grants the permission. See the documentation
+                            // for ActivityCompat#requestPermissions for more details.
+                            return;
+                        }
+                        cameraSource.start(surfaceView.getHolder());
+                    } catch (IOException e) {
+                        Log.e(TAG, "Failed to start camera preview.", e);
+                    }
+                }
+
+                @Override
+                public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                    // No implementation needed
+                }
+
+                @Override
+                public void surfaceDestroyed(SurfaceHolder holder) {
+                    cameraSource.stop();
+                }
+            });
+
+            // Set the face detector's processor
+            faceDetector.setProcessor(new Detector.Processor<Face>() {
+                @Override
+                public void release() {
+                    // Handle release logic if needed
+                }
+
+                @Override
+                public void receiveDetections(@NonNull Detector.Detections<Face> detections) {
+                    if (isRightPass && isStraightPass && isLeftPass) {
+                        if (!checked && !idImgStraight.isEmpty())
+                            checkImageAvatar(idImgStraight, idImgAvatarNFC);
                         return;
                     }
-                    cameraSource.start(surfaceView.getHolder());
-                } catch (IOException e) {
-                    Log.e(TAG, "Failed to start camera preview.", e);
-                }
-            }
+                    SparseArray<Face> faces = detections.getDetectedItems();
 
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                // No implementation needed
-            }
+                    for (int i = 0; i < faces.size(); i++) {
+                        Face face = faces.valueAt(i);
+                        float eulerY = face.getEulerY(); // Y-axis rotation of the face in degrees
 
-            @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {
-                cameraSource.stop();
-            }
-        });
-
-        // Set the face detector's processor
-        faceDetector.setProcessor(new Detector.Processor<Face>() {
-            @Override
-            public void release() {
-                // Handle release logic if needed
-            }
-
-            @Override
-            public void receiveDetections(@NonNull Detector.Detections<Face> detections) {
-                if (isRightPass && isStraightPass && isLeftPass) {
-                    if (!checked && !idImgStraight.isEmpty())
-                        checkImageAvatar(idImgStraight, idImgAvatarNFC);
-                    return;
-                }
-                SparseArray<Face> faces = detections.getDetectedItems();
-
-                for (int i = 0; i < faces.size(); i++) {
-                    Face face = faces.valueAt(i);
-                    float eulerY = face.getEulerY(); // Y-axis rotation of the face in degrees
-
-                    if (!isCalling) {
-                        if (eulerY < -30) {
-                            // Face is facing right
-                            Log.d(TAG, "Face is facing right");
-                            final Handler handler = new Handler(Looper.getMainLooper());
-                            handler.postDelayed(() -> {
-                                if (!isRightPass && stepCurrent == TypeImageRecognition.NAME_IMG_RIGHT && isStraightPass) {
-                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_RIGHT);
-                                }
-                            }, 150);
-
-                        } else if (eulerY > 30) {
-                            // Face is facing left
-                            Log.d(TAG, "Face is facing left");
-                            final Handler handler = new Handler(Looper.getMainLooper());
-                            handler.postDelayed(() -> {
-                                if (!isLeftPass && stepCurrent == TypeImageRecognition.NAME_IMG_LEFT && isStraightPass) {
-                                    captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_LEFT);
-                                }
-                            }, 150);
-                        } else {
-                            // Face is facing straight ahead
-                            Log.d(TAG, "Face is facing straight ahead");
-                            if (isFaceInsideFrame(face)) {
+                        if (!isCalling) {
+                            if (eulerY < -30) {
+                                // Face is facing right
+                                Log.d(TAG, "Face is facing right");
                                 final Handler handler = new Handler(Looper.getMainLooper());
                                 handler.postDelayed(() -> {
-                                    if (!isStraightPass && stepCurrent == TypeImageRecognition.NAME_IMG_CENTER) {
-                                        captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
+                                    if (!isRightPass && stepCurrent == TypeImageRecognition.NAME_IMG_RIGHT && isStraightPass) {
+                                        captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_RIGHT);
                                     }
-                                }, 300);
+                                }, 150);
+
+                            } else if (eulerY > 30) {
+                                // Face is facing left
+                                Log.d(TAG, "Face is facing left");
+                                final Handler handler = new Handler(Looper.getMainLooper());
+                                handler.postDelayed(() -> {
+                                    if (!isLeftPass && stepCurrent == TypeImageRecognition.NAME_IMG_LEFT && isStraightPass) {
+                                        captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_LEFT);
+                                    }
+                                }, 150);
+                            } else {
+                                // Face is facing straight ahead
+                                Log.d(TAG, "Face is facing straight ahead");
+                                if (isFaceInsideFrame(face)) {
+                                    final Handler handler = new Handler(Looper.getMainLooper());
+                                    handler.postDelayed(() -> {
+                                        if (!isStraightPass && stepCurrent == TypeImageRecognition.NAME_IMG_CENTER) {
+                                            captureViewOnScreen(surfaceView, TypeImageRecognition.NAME_IMG_CENTER);
+                                        }
+                                    }, 300);
+                                }
                             }
                         }
                     }
                 }
+            });
+        } else {
+            // Handle the case where the front camera is not available
+            // You can choose to use the back camera or show an error message
+            // based on your application requirements.
+            Toast.makeText(this, "Front camera not available", Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+    private int getFrontCameraId() {
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        int numberOfCameras = Camera.getNumberOfCameras();
+
+        for (int i = 0; i < numberOfCameras; i++) {
+            Camera.getCameraInfo(i, cameraInfo);
+            if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                return i; // Return the camera ID for the front camera
             }
-        });
+        }
+
+        return -1; // Return -1 if the front camera is not available
     }
 
     private boolean isFaceInsideFrame(Face face) {
